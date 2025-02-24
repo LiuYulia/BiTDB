@@ -68,6 +68,10 @@ int chachapoly_crypt(struct chachapoly_ctx *ctx, const void *nonce,
         const void *ad, int ad_len, void *input, int input_len,
         void *output, void *tag, int tag_len, int encrypt);
 
+int chachapoly_crypt_notag(struct chachapoly_ctx *ctx, const void *nonce,
+        const void *ad, int ad_len, void *input, int input_len,
+        void *output, void *tag, int tag_len, int encrypt);     
+
 /**
  * Encrypt or decrypt with Chacha20-Poly1305 for short messages.
  * The AEAD construction is different from chachapoly_crypt, but more

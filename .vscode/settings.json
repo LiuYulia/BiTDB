@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.inc": "c",
+        "ratio": "c",
+        "array": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "istream": "c",
+        "ostream": "c"
+    }
+}

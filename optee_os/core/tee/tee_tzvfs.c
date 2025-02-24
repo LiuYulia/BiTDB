@@ -12,7 +12,7 @@
 #define SH_PAGE_SZIE 80 * 1024 * 1024
 #define TMP_SZIE 15 * 1024 * 1024
 // struct mobj *mobj, *mobj1, *mobj2;
-struct mobj *mobj = NULL, *mobj1 = NULL, *mobj2 = NULL, *mobj_cache = NULL, *mobj_tmp = NULL;
+struct mobj *mobj = NULL, *mobj1 = NULL, *mobj2 = NULL, *mobj_cache = NULL, *mobj_tmp = NULL, *mobj_tag = NULL;
 
 typedef struct shmemcache {
   // int lseek;
@@ -39,6 +39,7 @@ unsigned char nonce[12] = {
 
 unsigned char tag[16];
 unsigned char tag_de[16] = {0};
+unsigned char tag_list[100][16];
 
 int flag = 0;
 struct chachapoly_ctx ctx;
@@ -391,13 +392,20 @@ int syscall_tzvfs_fcntl(int *tzvfs_errno, int fd, int cmd, struct tzvfs_flock *a
 // 当有错误发生时则返回-1, 错误代码存入errno 中
 ssize_t syscall_tzvfs_read(int *tzvfs_errno, int fd, void *buf, size_t count,  off_t offset, int whence){
   ssize_t ret = -1;
+  // MSG("read: count: %d offset: %d fd: %d type: %s", count, offset, fd, fd==mainfile_fd ? "mainfile" : "tmpfile");
 
   if (count == 4096 && mainfile_fd == fd) {
     int page_num = offset / 4096;
     if (page_num < max_shpage) {
       if (page_cache[page_num].page[0] != 0) {
         // memcpy(buf, page_cache[page_num].page, count);
-        chachapoly_crypt(&ctx, nonce, ad, 12, page_cache[page_num].page, count, buf, tag_de, 16, 0);
+        // unsigned char temp[100] = "";
+        // for(int i=0;i<16; i++){
+        //   snprintf(temp, 100, "%s %x", temp, tag_list[page_num][i]);
+        // }
+        // MSG("read cache: %d tag: %s\n", page_num, temp);
+        // for(int i=0;i<16;i++) MSG("%x", tag_list[page_num][i]);
+        chachapoly_crypt(&ctx, nonce, ad, 12, page_cache[page_num].page, count, buf, tag_list[page_num], 16, 0);
         return count;
       }
     }
@@ -406,7 +414,7 @@ ssize_t syscall_tzvfs_read(int *tzvfs_errno, int fd, void *buf, size_t count,  o
   if (tmpfile_fd == fd) {
     if (offset + count - 1 <= TMP_SZIE - 1) {
       // memcpy(buf, tmp_cache + offset, count);
-      chachapoly_crypt(&ctx, nonce, ad, 12, tmp_cache + offset, count, buf, tag_de, 16, 0);
+      chachapoly_crypt_notag(&ctx, nonce, ad, 12, tmp_cache + offset, count, buf, tag_de, 16, 0);
       return count;
     }
   }
@@ -414,7 +422,7 @@ ssize_t syscall_tzvfs_read(int *tzvfs_errno, int fd, void *buf, size_t count,  o
   size_t size = count;
   struct thread_param params[4];
   // struct mobj *mobj = NULL;
-  void *va;
+  void *va, *va_tag;
   // 分配共享内存
   // mobj = thread_rpc_alloc_payload(size);
   if (!mobj) {
@@ -428,19 +436,34 @@ ssize_t syscall_tzvfs_read(int *tzvfs_errno, int fd, void *buf, size_t count,  o
     *tzvfs_errno = TEE_ERROR_SHORT_BUFFER;
     thread_rpc_free_payload(mobj);
     return -1;
+  } 
+
+  if (!mobj_tag) {
+    mobj_tag = thread_rpc_alloc_payload(16);
   }
+  if (!mobj_tag) {
+    *tzvfs_errno = TEE_ERROR_OUT_OF_MEMORY;
+    return -1;
+  }
+  va_tag = mobj_get_va(mobj_tag, 0);
+  // memset(va_tag, 0, 16);
+
+
   // 获取分配的共享内存的虚拟地址
   if (count == 4096 && mainfile_fd == fd) {
     params[2] = THREAD_PARAM_MEMREF(IN, mobj_cache, 0, SH_PAGE_SZIE);
+    // MSG("11111");
   } else {
     // va = mobj_get_va(mobj, 0);
     params[2] = THREAD_PARAM_MEMREF(IN, mobj, 0, size);
   }
   // 初始RPC参数
-  params[0] = THREAD_PARAM_VALUE(IN, TZVFS_RPC_FS_READ, fd, 0);
-  params[1] = THREAD_PARAM_VALUE(IN, offset, whence, 0);
+  params[0] = THREAD_PARAM_VALUE(IN, TZVFS_RPC_FS_READ, fd, offset);
+  // params[1] = THREAD_PARAM_VALUE(IN, offset, whence, 0);
+  params[1] = THREAD_PARAM_MEMREF(IN, mobj_tag, 0, 16);
   // params[2] = THREAD_PARAM_MEMREF(IN, mobj, 0, size);
-  params[3] = THREAD_PARAM_VALUE(OUT, 0, 0, 0);
+  params[3] = THREAD_PARAM_VALUE(OUT, 0, 0, whence);
+  // MSG("22222");
   // 发起RPC调用
   if (TEE_SUCCESS == thread_rpc_cmd(OPTEE_MSG_RPC_CMD_TZVFS, 4, params)) {
     // memcpy(buf, va, size);
@@ -454,15 +477,24 @@ ssize_t syscall_tzvfs_read(int *tzvfs_errno, int fd, void *buf, size_t count,  o
         // page_cache[page_num].lseek = offset;
         // page_cache[page_num].isWrite = 0;
         // memcpy(buf, page_cache[page_num].page, size);
-        chachapoly_crypt(&ctx, nonce, ad, 12, page_cache[page_num].page, size, buf, tag_de, 16, 0);
+        
+        memcpy(tag_list[page_num], va_tag, 16);
+        // unsigned char temp[100] = "";
+        // for(int i=0;i<16; i++){
+        //   snprintf(temp, 100, "%s %x", temp, ((unsigned char*)va_tag)[i]);
+        // }
+        // MSG("read file: %d tag: %s\n", page_num, temp);
+        chachapoly_crypt(&ctx, nonce, ad, 12, page_cache[page_num].page, size, buf, va_tag, 16, 0);
       }
     } else {
       va = mobj_get_va(mobj, 0);
       // memcpy(buf, va, size);
-      chachapoly_crypt(&ctx, nonce, ad, 12, va, size, buf, tag_de, 16, 0);
+      // va_tag = mobj_get_va(mobj_tag, 0);
+      // for(int i=0;i<16;i++) MSG("%x", ((unsigned char*)va_tag)[i]);
+      chachapoly_crypt_notag(&ctx, nonce, ad, 12, va, size, buf, tag_de, 16, 0);
     }
   }
-  // thread_rpc_free_payload(mobj);
+  // thread_rpc_free_payload(mobj_tag);
   
   return ret;
 }
@@ -512,13 +544,19 @@ ssize_t tzvfs_write_page(int *tzvfs_errno, int fd, const void *buf, size_t count
 // 成功时返回写的字节数，错误时返回-1
 ssize_t syscall_tzvfs_write(int *tzvfs_errno, int fd, const void *buf, size_t count,  off_t offset, int whence){
   ssize_t ret = -1;
-  
+  // MSG("write: count: %d offset: %d fd: %d type: %s", count, offset, fd, fd==mainfile_fd ? "mainfile" : "tmpfile");
+
   if (count == 4096 && mainfile_fd == fd) {
     int page_num = offset / 4096;
     if (page_num < max_shpage) {
       // if (page_cache[page_num].page[0] != 0) {
         // memcpy(page_cache[page_num].page, buf, count);
-        chachapoly_crypt(&ctx, nonce, ad, 12, buf, count, page_cache[page_num].page, tag, 16, 1);
+        chachapoly_crypt(&ctx, nonce, ad, 12, buf, count, page_cache[page_num].page, tag_list[page_num], 16, 1);
+        // unsigned char temp[100] = "";
+        // for(int i=0;i<16; i++){
+        //   snprintf(temp, 100, "%s %x", temp, tag_list[page_num][i]);
+        // }
+        // MSG("write cache: %d tag: %s\n", page_num, temp);
         // page_cache[page_num].lseek = offset;
         // page_cache[page_num].isWrite = 1;
         // return count;
@@ -537,7 +575,7 @@ ssize_t syscall_tzvfs_write(int *tzvfs_errno, int fd, const void *buf, size_t co
   size_t size = count;
   struct thread_param params[4];
   // struct mobj *mobj = NULL;
-  void *va;
+  void *va, *va_tag;
 
   // DMSG("ENTERING syscall_tzvfs_write...\n");
 
@@ -555,21 +593,38 @@ ssize_t syscall_tzvfs_write(int *tzvfs_errno, int fd, const void *buf, size_t co
     thread_rpc_free_payload(mobj);
     return -1;
   }
+
+  if (!mobj_tag) {
+    mobj_tag = thread_rpc_alloc_payload(16);
+  }
+  if (!mobj_tag) {
+    *tzvfs_errno = TEE_ERROR_OUT_OF_MEMORY;
+    return -1;
+  }
+  va_tag = mobj_get_va(mobj_tag, 0);
+
   // 获取分配的共享内存的虚拟地址
   va = mobj_get_va(mobj, 0);
   // memcpy(va, buf, size);
-  chachapoly_crypt(&ctx, nonce, ad, 12, buf, count, va, tag, 16, 1);
+  chachapoly_crypt(&ctx, nonce, ad, 12, buf, count, va, va_tag, 16, 1);
+
+  // for(int i=0;i<16;i++) MSG("%x", ((unsigned char*)va_tag)[i]);
   // 初始RPC参数
-  params[0] = THREAD_PARAM_VALUE(IN, TZVFS_RPC_FS_WRITE, fd, 0);
-  params[1] = THREAD_PARAM_VALUE(IN, offset, whence, 0);
+  params[0] = THREAD_PARAM_VALUE(IN, TZVFS_RPC_FS_WRITE, fd, offset);
+  // params[1] = THREAD_PARAM_VALUE(IN, offset, whence, 0);
+  params[1] = THREAD_PARAM_MEMREF(IN, mobj_tag, 0, 16);
   params[2] = THREAD_PARAM_MEMREF(IN, mobj, 0, size);
-  params[3] = THREAD_PARAM_VALUE(OUT, 0, 0, 0);
+  params[3] = THREAD_PARAM_VALUE(OUT, 0, 0, whence);
+  // MSG("offset: %d, whence: %d", offset, whence);
+  // params[4] = THREAD_PARAM_MEMREF(IN, mobj_tag, 0, 16);
   // 发起RPC调用
   if (TEE_SUCCESS == thread_rpc_cmd(OPTEE_MSG_RPC_CMD_TZVFS, 4, params)) {
+    // MSG("OPTEE_MSG_RPC_CMD_TZVFS ok");
     ret = params[3].u.value.a;
     if (ret == -1) *tzvfs_errno = params[3].u.value.b;
   }
   // thread_rpc_free_payload(mobj);
+  // thread_rpc_free_payload(mobj_tag);
   
   return ret;
 }

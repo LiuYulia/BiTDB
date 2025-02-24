@@ -51,8 +51,8 @@ Then:
 
 .. code:: bash
 
-	$ cp ./out/boot/* /media/user/boot
-	$ sudo cp -r ./out/rootfs/* /media/user/rootfs
+	$ cp ./out/boot/* /media/cc/boot
+	$ sudo cp -r ./out/rootfs/* /media/cc/rootfs
 
 Boot Rsapberry Pi with the Modified image in SD Card.
 

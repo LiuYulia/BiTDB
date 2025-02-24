@@ -27,6 +27,23 @@ typedef struct shmemcache {
 //   uint8_t isWrite;
 }shmemcache;
 
+
+
+void getFilePathFromFd(int fd, char *filePath, size_t size) {
+    char fdPath[256];
+    snprintf(fdPath, sizeof(fdPath), "/proc/self/fd/%d", fd);
+
+    ssize_t len = readlink(fdPath, filePath, size - 1);
+    if (len != -1) {
+        filePath[len] = '\0'; // 添加字符串结束符
+		// printf("getFilePathFromFd: %s\n", filePath);
+		strcat(filePath, "_tag.bin");
+		// printf("getFilePathFromFd: %s\n", filePath);
+    } else {
+        printf("readlink error");
+    }
+}
+
 static TEEC_Result ree_tzvfs_open(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
@@ -52,8 +69,9 @@ static TEEC_Result ree_tzvfs_open(size_t num_params,
 	ret = open(filename, flags, mode);
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, filename=%s, flags=%d, mode=%d, ret=%d\n", __func__, filename, flags, mode, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+
+	// printf("DMSG: call%s, filename=%s, flags=%d, mode=%d, ret=%d\n", __func__, filename, flags, mode, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -75,8 +93,8 @@ static TEEC_Result ree_tzvfs_close(size_t num_params,
 	ret = close(fd);
 	params[1].u.value.a = ret;
 	if (ret == -1) params[1].u.value.b = errno;
-	printf("DMSG: call%s, fd=%d, ret=%d\n", __func__, fd, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, fd=%d, ret=%d\n", __func__, fd, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -104,8 +122,8 @@ static TEEC_Result ree_tzvfs_getcwd(size_t num_params,
 	ret = getcwd(buf, size);
 	params[2].u.value.a = ret;
 	if (ret == NULL) params[2].u.value.b = errno;
-	printf("DMSG: call%s, buf=%x, size=%d, ret=%x\n", __func__, buf, size, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, buf=%x, size=%d, ret=%x\n", __func__, buf, size, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -135,8 +153,8 @@ static TEEC_Result ree_tzvfs_lstat(size_t num_params,
     ret = lstat(path, buf);
     params[3].u.value.a = ret;
     if (ret == -1) params[3].u.value.b = errno;
-	printf("DMSG: call%s, path=%s, buf=%x, ret=%d, sizeof(struct flock)=%d, st_uid=%d\n", __func__, path, buf, ret, sizeof(struct flock), buf->st_uid);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, path=%s, buf=%x, ret=%d, sizeof(struct flock)=%d, st_uid=%d\n", __func__, path, buf, ret, sizeof(struct flock), buf->st_uid);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
     return TEEC_SUCCESS;
 }
 
@@ -166,8 +184,8 @@ static TEEC_Result ree_tzvfs_stat(size_t num_params,
     ret = stat(path, buf);
     params[3].u.value.a = ret;
     if (ret == -1) params[3].u.value.b = errno;
-	printf("DMSG: call%s, path=%s, buf=%x, ret=%d, sizeof(struct stat)=%d, st_uid=%d\n", __func__, path, buf, ret, sizeof(struct stat), buf->st_uid);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, path=%s, buf=%x, ret=%d, sizeof(struct stat)=%d, st_uid=%d\n", __func__, path, buf, ret, sizeof(struct stat), buf->st_uid);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
     return TEEC_SUCCESS;
 }
 
@@ -194,8 +212,8 @@ static TEEC_Result ree_tzvfs_fstat(size_t num_params,
 	ret = fstat(fd, buf);
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, fd=%d, buf=%x, ret=%d\n", __func__, fd, buf, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, fd=%d, buf=%x, ret=%d\n", __func__, fd, buf, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -224,8 +242,8 @@ static TEEC_Result ree_tzvfs_fcntl(size_t num_params,
 	ret = fcntl(fd, cmd, buf);
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, fd=%d, cmd=%d, buf=%x, ret=%d, sizeof(struct flock)=%d\n", __func__, fd, cmd, buf, ret, sizeof(struct flock));
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, fd=%d, cmd=%d, buf=%x, ret=%d, sizeof(struct flock)=%d\n", __func__, fd, cmd, buf, ret, sizeof(struct flock));
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -234,7 +252,7 @@ static TEEC_Result ree_tzvfs_read(size_t num_params,
 {
 	ssize_t ret = -1;
 	int fd = -1;
-	void *buf = NULL;
+	void *buf = NULL, *tag = NULL;
 	shmemcache *page_cache = NULL;
 	size_t count = 0;
 	off_t offset = 0;
@@ -244,7 +262,7 @@ static TEEC_Result ree_tzvfs_read(size_t num_params,
 	    (params[0].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
 			TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT ||
 		(params[1].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
-			TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT ||
+			TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT ||
 	    (params[2].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
 			TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT ||
 	    (params[3].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
@@ -253,17 +271,39 @@ static TEEC_Result ree_tzvfs_read(size_t num_params,
 
 	buf = tee_supp_param_to_va(params + 2);
     if (!buf) return TEEC_ERROR_BAD_PARAMETERS;
+	tag = tee_supp_param_to_va(params + 1);
+    if (!tag) return TEEC_ERROR_BAD_PARAMETERS;
 	// count = MEMREF_SIZE(params + 1);
 	count = params[2].u.memref.size;
 	fd = params[0].u.value.b;
-	offset = params[1].u.value.a;
-	whence = params[1].u.value.b;
+	offset = params[0].u.value.c;
+	whence = params[3].u.value.c;
 
 	if (count == SH_PAGE_SZIE) {
 		count = 4096;
 		page_cache = (shmemcache *)buf;
 		int page_num = offset / 4096;
 		buf = page_cache[page_num].page;
+
+		// struct page_tag* read_tag = find_page_tag(fd);
+		// if(read_tag!=NULL){
+		char tagPath[256];
+		getFilePathFromFd(fd, tagPath, sizeof(tagPath));
+		// printf("tagPath: %s\n", tagPath);
+		int tag_fd = open(tagPath, O_RDONLY | O_CREAT, 0644);
+		if(tag_fd == -1){
+			printf("open tag file error\n");
+		}else{
+			unsigned char tag_list[100][16] = {};
+			read(tag_fd, tag_list, sizeof(tag_list));
+			close(tag_fd);
+			memcpy(tag, tag_list[page_num], 16);
+			// printf("read tag %d tagPath: %s\n", page_num, tagPath);
+			// for(int i=0;i<16;i++) 
+			// 	printf("%x ", ((unsigned char*)tag)[i]);
+			// printf("\n");
+		}
+		// }
 	}
 
 	ret = lseek(fd, offset, whence);
@@ -274,6 +314,13 @@ static TEEC_Result ree_tzvfs_read(size_t num_params,
 	}
 
 	ret = read(fd, buf, count);
+
+	// unsigned char temp[30000] = "";
+    // for(int i=0;i<count; i++){
+    //     snprintf(temp + strlen(temp), 4096 - strlen(temp), "0x%02x, ", ((unsigned char*)buf)[i]);
+    // }
+	// printf("read len: %d offset: %d\nread data: %s\n\n", count, offset, temp);
+	
 	params[3].u.value.a = ret;
 	if (ret == -1) params[3].u.value.b = errno;
 	// printf("DMSG: call%s, fd=%d, buf=%x, count=%d, ret=%d, errno=%s\n", __func__, fd, buf, count, ret, strerror(errno));	
@@ -285,10 +332,10 @@ static TEEC_Result ree_tzvfs_write(size_t num_params,
 {
     ssize_t ret = -1;
 	int fd = -1;
-	void *buf = NULL;
+	void *buf = NULL, *tag = NULL;
 	size_t count = 0;
 	off_t offset = 0;
-	int whence = SEEK_SET;
+	int whence = SEEK_SET; 
 
 	// printf("ENTERING function %s.\n", __func__);
 	// printf("Number of parameters: %d.\n", num_params);
@@ -297,7 +344,7 @@ static TEEC_Result ree_tzvfs_write(size_t num_params,
 	    (params[0].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
 			TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT ||
 		(params[1].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
-			TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT ||
+			TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT ||
 	    (params[2].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
 			TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT ||
 	    (params[3].attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) !=
@@ -308,11 +355,42 @@ static TEEC_Result ree_tzvfs_write(size_t num_params,
 
 	buf = tee_supp_param_to_va(params + 2);
     if (!buf) return TEEC_ERROR_BAD_PARAMETERS;
+	tag = tee_supp_param_to_va(params + 1);
+    if (!tag) return TEEC_ERROR_BAD_PARAMETERS;
+	// printf("\n11111111\n");
 	// count = MEMREF_SIZE(params + 1);
 	count = params[2].u.memref.size;
 	fd = params[0].u.value.b;
-	offset = params[1].u.value.a;
-	whence = params[1].u.value.b;
+	offset = params[0].u.value.c;
+	whence = params[3].u.value.c;
+	if(count==4096){
+		int pgnum = offset/4096;
+
+		// struct page_tag * write_tag = find_page_tag(fd);
+		// if(write_tag!=NULL){
+			// printf("write file %s fd: %d\n", write_tag->tag_file, write_tag->db_fd);
+		char tagPath[256];
+		getFilePathFromFd(fd, tagPath, sizeof(tagPath));
+		// printf("tagPath: %s\n", tagPath);
+		int tag_fd = open(tagPath, O_RDWR | O_CREAT, 0644);
+		if(tag_fd==-1){
+			printf("tag open error\n");
+		}else{
+			unsigned char tag_list[100][16] = {};
+			if(read(tag_fd, tag_list, sizeof(tag_list))==-1) printf("read tag file error\n");
+			memcpy(tag_list[pgnum], tag, 16);
+			lseek(tag_fd, 0, SEEK_SET);
+			if(write(tag_fd, tag_list, sizeof(tag_list))==-1) 
+				printf("write tag error\n");
+			close(tag_fd);
+			// printf("write tag %d tagPath: %s\n", pgnum, tagPath);
+			// for(int i=0;i<16;i++) 
+			// 	printf("%x ", ((unsigned char*)tag)[i]);
+			// printf("\n");
+		}
+		// }
+	}
+	// printf("offset: %d, whence: %d\n", offset, whence);
 
 	ret = lseek(fd, offset, whence);
 	if (ret == -1) {
@@ -322,6 +400,13 @@ static TEEC_Result ree_tzvfs_write(size_t num_params,
 	}
 
 	ret = write(fd, buf, count);
+
+    // unsigned char temp[30000] = "";
+    // for(int i=0;i<count; i++){
+    //     snprintf(temp + strlen(temp), 30000 - strlen(temp), "0x%02x, ", ((unsigned char*)buf)[i]);
+    // }
+	// printf("write len: %d offset: %d \nwrite data: %s\n\n", count, offset, temp);
+
 	params[3].u.value.a = ret;
 	if (ret == -1) 
 		params[3].u.value.b = errno;
@@ -332,7 +417,7 @@ static TEEC_Result ree_tzvfs_write(size_t num_params,
 static TEEC_Result ree_tzvfs_geteuid(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
@@ -358,8 +443,8 @@ static TEEC_Result ree_tzvfs_unlink(size_t num_params,
 	ret = unlink(path);
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, path=%s, ret=%d\n", __func__, path, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, path=%s, ret=%d\n", __func__, path, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -387,8 +472,8 @@ static TEEC_Result ree_tzvfs_access(size_t num_params,
 	ret = access(path, mode);
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, path=%s, mode=%d, ret=%d\n", __func__, path, mode, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, path=%s, mode=%d, ret=%d\n", __func__, path, mode, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -426,8 +511,8 @@ static TEEC_Result ree_tzvfs_mmap(size_t num_params,
 	ret = mmap(addr, len, prot, flags, fildes, off);
 	params[3].u.value.a = ret;
 	if (ret == -1) params[3].u.value.b = errno;
-	printf("DMSG: call%s, ret=%d\n", __func__, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, ret=%d\n", __func__, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -458,8 +543,8 @@ static TEEC_Result ree_tzvfs_mremap(size_t num_params,
 	
 	params[2].u.value.a = ret;
 	if (ret == -1) params[2].u.value.b = errno;
-	printf("DMSG: call%s, ret=%d\n", __func__, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, ret=%d\n", __func__, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
@@ -484,7 +569,7 @@ static TEEC_Result ree_tzvfs_munmap(size_t num_params,
 	
 	params[1].u.value.a = ret;
 	if (ret == -1) params[1].u.value.b = errno;
-	printf("DMSG: call%s, ret=%d\n", __func__, ret);
+	// printf("DMSG: call%s, ret=%d\n", __func__, ret);
 	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
@@ -523,7 +608,7 @@ static TEEC_Result ree_tzvfs_strcspn(size_t num_params,
 static TEEC_Result ree_tzvfs_utimes(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
@@ -558,14 +643,14 @@ static TEEC_Result ree_tzvfs_lseek(size_t num_params,
 static TEEC_Result ree_tzvfs_fsync(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
 static TEEC_Result ree_tzvfs_getenv(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
@@ -584,36 +669,36 @@ static TEEC_Result ree_tzvfs_getpid(size_t num_params,
 	ret = getpid();
 	params[1].u.value.a = ret;
 	if (ret == -1) params[1].u.value.b = errno;
-	printf("DMSG: call%s, ret=%d\n", __func__, ret);
-	if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
+	// printf("DMSG: call%s, ret=%d\n", __func__, ret);
+	// if (ret == -1) printf("errno=%d, errstr=%s\n", errno, strerror(errno));
 	return TEEC_SUCCESS;
 }
 
 static TEEC_Result ree_tzvfs_time(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
 static TEEC_Result ree_tzvfs_sleep(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
 static TEEC_Result ree_tzvfs_gettimeofday(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
 static TEEC_Result ree_tzvfs_fchown(size_t num_params,
 				   struct tee_ioctl_param *params)
 {
-    printf("%s has not been realised!\n", __func__);
+    // printf("%s has not been realised!\n", __func__);
 	return TEEC_SUCCESS;
 }
 
