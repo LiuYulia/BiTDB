@@ -12,6 +12,12 @@
 /* The function IDs implemented in this TA */
 #define TA_BITDB_CMD_SELECT_GPS     51
 #define TA_BITDB_CMD_TPC_TEST	52
+#define TA_BITDB_CMD_MYTEST_INIT_DB 60
+#define TA_BITDB_CMD_MYTEST_SELECT 61
+#define TA_BITDB_CMD_MYTEST_INSERT 62
+#define TA_BITDB_CMD_MYTEST_UPDATE 63
+#define TA_BITDB_CMD_MYTEST_DELETE 64
+#define TA_BITDB_CMD_MYTEST_HASH 65
 
 extern char* DB_NAME;
 

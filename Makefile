@@ -41,12 +41,12 @@ U-BOOT_DEFCONFIG_COMMON_FILES := \
 		${TEE_SDK_DIR}/firmware/u-boot_rpi3.conf
 .PHONY: u-boot
 u-boot: u-boot-defconfig
-	ARCH=arm $(MAKE) -C ./u-boot all
-	ARCH=arm $(MAKE) -C ./u-boot tools
+	ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C ./u-boot all
+	ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C ./u-boot tools
 
 .PHONY: u-boot-clean
 u-boot-clean: u-boot-defconfig-clean
-	ARCH=arm $(MAKE) -C ./u-boot clean
+	ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C ./u-boot clean
 
 .PHONY: u-boot-env
 u-boot-env: ${TEE_SDK_DIR}/firmware/uboot.env.txt u-boot
@@ -59,7 +59,7 @@ u-boot-env-clean:
 .PHONY: u-boot-defconfig
 u-boot-defconfig:$(U-BOOT_DEFCONFIG_COMMON_FILES)
 	cd ${TEE_SDK_DIR}/u-boot && \
-		ARCH=arm \
+		ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) \
 		scripts/kconfig/merge_config.sh $(U-BOOT_DEFCONFIG_COMMON_FILES)
 
 .PHONY: u-boot-defconfig-clean
@@ -71,9 +71,9 @@ u-boot-defconfig-clean:
 ################################################################################
 OPTEE_OS_FLAGS ?= \
 	PLATFORM=rpi3 \
-	O=out/arm CFG_ARM32_core=y \
-	CROSS_COMPILE=$(CROSS_COMPILE) \
-	CROSS_COMPILE_core=$(CROSS_COMPILE) \
+	O=out/arm CFG_ARM64_core=y \
+	CROSS_COMPILE=$(CROSS_COMPILE_AARCH64) \
+	CROSS_COMPILE_core=$(CROSS_COMPILE_AARCH64) \
 	CROSS_COMPILE_ta_arm32=$(CROSS_COMPILE) \
 	CFG_TEE_CORE_LOG_LEVEL=4 \
 	DEBUG=0 \
@@ -92,7 +92,7 @@ optee-os-clean:
 ################################################################################
 # OP-TEE client
 ################################################################################
-OPTEE_CLIENT_FLAGS ?= CROSS_COMPILE=$(CROSS_COMPILE) \
+OPTEE_CLIENT_FLAGS ?= CROSS_COMPILE=$(CROSS_COMPILE_AARCH64) \
 	CFG_TEE_BENCHMARK=n \
 
 .PHONY: optee-client
